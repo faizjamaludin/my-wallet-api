@@ -73,6 +73,7 @@ All routes are prefixed `/api`. Protected routes require `Authorization: Bearer 
 |--------|----------|------|-------------|
 | POST | `/api/register` | Public | Register user |
 | POST | `/api/login` | Public | Login, returns token |
+| POST | `/api/auth/google` | Public | Google OAuth — **not yet implemented** |
 | POST | `/api/logout` | Required | Revoke token |
 | GET | `/api/dashboard/summary` | Required | Monthly financial summary |
 | GET/PUT | `/api/salary` | Required | Salary & budget config |
@@ -102,6 +103,17 @@ Month fields use `YYYY-MM` format for monthly aggregation.
 1. `POST /api/register` or `POST /api/login` → returns `{ token: "..." }`
 2. Include `Authorization: Bearer {token}` on all subsequent requests
 3. `POST /api/logout` revokes the current token
+
+### Google OAuth (not yet implemented — frontend is ready)
+
+The frontend sends `POST /api/auth/google` with body `{ token: "<google-id-token>" }`.
+Expected response: same shape as login — `{ token: "...", user: { id, name, email } }`.
+
+Implementation steps:
+1. Install `laravel/socialite` + `socialiteproviders/google`
+2. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Render env vars
+3. Create `GoogleAuthController` that verifies the Google ID token via `Socialite::driver('google')->userFromToken($request->token)`, finds or creates the user, issues a Sanctum token, and returns it
+4. Add route: `Route::post('/auth/google', [GoogleAuthController::class, 'handleToken'])` in `routes/api.php` (public, no auth middleware)
 
 ## Notes
 
