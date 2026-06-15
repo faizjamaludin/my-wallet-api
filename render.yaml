@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: personal-budget-api
+    runtime: php
+    plan: free
+    buildCommand: chmod +x ./build.sh && ./build.sh
+    startCommand: php artisan serve --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_NAME
+        value: MyWallet
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        sync: false   # You must set this manually in the Render dashboard
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: personal-budget-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: localhost
+
+databases:
+  - name: personal-budget-db
+    databaseName: personal_budget
+    user: personal_budget
+    plan: free

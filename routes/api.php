@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\SalaryController;
 use App\Http\Controllers\Api\SavingController;
 use Illuminate\Support\Facades\Route;
 
+// Health check (Render uses this to confirm the service is up)
+Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
 // Auth (public)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
