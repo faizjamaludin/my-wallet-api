@@ -23,12 +23,13 @@ class CommitmentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'    => 'required|string|max:255',
-            'type'    => 'required|in:fixed,variable',
-            'amount'  => 'required|numeric|min:0',
-            'due_day' => 'nullable|integer|min:1|max:31',
-            'is_paid' => 'boolean',
-            'month'   => 'required|date_format:Y-m',
+            'name'           => 'required|string|max:255',
+            'type'           => 'required|in:fixed,variable',
+            'payment_method' => 'nullable|in:debit,credit_card',
+            'amount'         => 'required|numeric|min:0',
+            'due_day'        => 'nullable|integer|min:1|max:31',
+            'is_paid'        => 'boolean',
+            'month'          => 'required|date_format:Y-m',
         ]);
 
         $commitment = Commitment::create([
@@ -45,12 +46,13 @@ class CommitmentController extends Controller
         $this->authorizeOwnership($request, $commitment);
 
         $data = $request->validate([
-            'name'    => 'sometimes|string|max:255',
-            'type'    => 'sometimes|in:fixed,variable',
-            'amount'  => 'sometimes|numeric|min:0',
-            'due_day' => 'nullable|integer|min:1|max:31',
-            'is_paid' => 'sometimes|boolean',
-            'month'   => 'sometimes|date_format:Y-m',
+            'name'           => 'sometimes|string|max:255',
+            'type'           => 'sometimes|in:fixed,variable',
+            'payment_method' => 'sometimes|in:debit,credit_card',
+            'amount'         => 'sometimes|numeric|min:0',
+            'due_day'        => 'nullable|integer|min:1|max:31',
+            'is_paid'        => 'sometimes|boolean',
+            'month'          => 'sometimes|date_format:Y-m',
         ]);
 
         $commitment->update($data);
