@@ -23,6 +23,7 @@ class SavingController extends Controller
             'amount' => 'required|numeric|min:0',
             'note' => 'nullable|string|max:500',
             'date' => 'required|date_format:Y-m-d',
+            'goal_id' => 'nullable|exists:savings_goals,id',
             'child_fund_goal' => 'nullable|numeric|min:0',
             'child_fund_target_date' => 'nullable|date_format:Y-m-d',
         ]);
