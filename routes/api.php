@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\RuleController;
 use App\Http\Controllers\Api\SavingController;
 use App\Http\Controllers\Api\SavingsGoalController;
 use App\Http\Controllers\Api\SpendingController;
+use App\Http\Controllers\Api\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 // Health check (Render uses this to confirm the service is up)
