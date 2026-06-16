@@ -20,8 +20,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 
 EXPOSE ${PORT:-8000}
 
-# At startup: cache config, run migrations, serve
+# At startup: cache config, run migrations, seed presets, serve
 CMD php artisan config:cache \
     && php artisan route:cache \
     && php artisan migrate --force \
+    && php artisan db:seed --class=CategorySeeder --force \
     && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
