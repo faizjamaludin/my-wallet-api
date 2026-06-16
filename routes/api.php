@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\GroceryController;
 use App\Http\Controllers\Api\RuleCalculatorController;
 use App\Http\Controllers\Api\SalaryController;
 use App\Http\Controllers\Api\SavingController;
+use App\Http\Controllers\Api\SavingsGoalController;
+use App\Http\Controllers\Api\SpendingController;
 use Illuminate\Support\Facades\Route;
 
 // Health check (Render uses this to confirm the service is up)
@@ -50,7 +52,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/groceries', [GroceryController::class, 'store']);
     Route::delete('/groceries/{grocery}', [GroceryController::class, 'destroy']);
 
-    // Savings
+    // Daily spending
+    Route::get('/spending', [SpendingController::class, 'index']);
+    Route::post('/spending', [SpendingController::class, 'store']);
+    Route::delete('/spending/{spending}', [SpendingController::class, 'destroy']);
+
+    // Savings goals (must be before wildcard savings routes)
+    Route::get('/savings/goals', [SavingsGoalController::class, 'index']);
+    Route::post('/savings/goals', [SavingsGoalController::class, 'store']);
+    Route::put('/savings/goals/{goal}', [SavingsGoalController::class, 'update']);
+    Route::delete('/savings/goals/{goal}', [SavingsGoalController::class, 'destroy']);
+
+    // Savings entries
     Route::get('/savings/summary', [SavingController::class, 'summary']);
     Route::put('/savings/child-fund', [SavingController::class, 'updateChildFund']);
     Route::get('/savings', [SavingController::class, 'index']);
