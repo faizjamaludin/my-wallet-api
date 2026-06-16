@@ -48,7 +48,7 @@ class RuleCalculatorController extends Controller
             ->sum('amount');
 
         $actualSavings = (float) Saving::where('user_id', $userId)
-            ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$month])
+            ->whereRaw("TO_CHAR(date, 'YYYY-MM') = ?", [$month])
             ->sum('amount');
 
         $idealCommitments  = round($salaryAmount * $rule['commitments'] / 100, 2);

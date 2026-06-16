@@ -61,7 +61,7 @@ class SavingController extends Controller
         $totalSavings = Saving::where('user_id', $userId)->sum('amount');
 
         $savingsThisMonth = Saving::where('user_id', $userId)
-            ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$currentMonth])
+            ->whereRaw("TO_CHAR(date, 'YYYY-MM') = ?", [$currentMonth])
             ->sum('amount');
 
         $latest = Saving::where('user_id', $userId)->latest('date')->first();
