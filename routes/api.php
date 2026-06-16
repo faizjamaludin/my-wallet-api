@@ -18,6 +18,7 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // Auth (public)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
