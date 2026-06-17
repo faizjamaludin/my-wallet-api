@@ -25,6 +25,8 @@ class CardController extends Controller
             'last_four'       => 'nullable|string|size:4',
             'credit_limit'    => 'nullable|numeric|min:0',
             'current_balance' => 'nullable|numeric',
+            'statement_day'   => 'nullable|integer|min:1|max:31',
+            'payment_day'     => 'nullable|integer|min:1|max:31',
         ]);
 
         $card = Card::create([...$data, 'user_id' => $request->user()->id]);
@@ -42,6 +44,8 @@ class CardController extends Controller
             'last_four'       => 'nullable|string|size:4',
             'credit_limit'    => 'nullable|numeric|min:0',
             'current_balance' => 'nullable|numeric',
+            'statement_day'   => 'nullable|integer|min:1|max:31',
+            'payment_day'     => 'nullable|integer|min:1|max:31',
         ]);
 
         $card->update($data);

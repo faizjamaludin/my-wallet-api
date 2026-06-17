@@ -10,26 +10,37 @@ use App\Models\Commitment;
 use App\Models\Rule;
 use App\Models\Saving;
 use App\Models\Transaction;
+use App\Support\BillingCycle;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function summary(Request $request)
     {
-        $month  = $request->query('month', now()->format('Y-m'));
         $userId = $request->user()->id;
         $today  = now()->day;
 
-        // Transactions
+        // Resolve the statement_day from the user's first credit card
+        $firstCC      = Card::where('user_id', $userId)->where('type', 'credit')->orderBy('created_at')->first();
+        $statementDay = $firstCC?->statement_day ?? 18;
+        $paymentDay   = $firstCC?->payment_day ?? 1;
+
+        $cycleMonth = $request->query('month', BillingCycle::currentCycleMonth($statementDay));
+        [$cycleStart, $cycleEnd] = BillingCycle::dateRange($cycleMonth, $statementDay);
+        $statementDate  = BillingCycle::statementDate($cycleMonth, $statementDay);
+        $paymentDueDate = BillingCycle::paymentDueDate($cycleMonth, $statementDay, $paymentDay);
+
+        // Transactions in this billing cycle
         $transactions = Transaction::where('user_id', $userId)
-            ->where('month', $month)
+            ->whereBetween('date', [$cycleStart, $cycleEnd])
             ->get();
 
         $totalOutflow = $transactions->sum('amount');
 
         // By card
-        $cards = Card::where('user_id', $userId)->get();
-        $byCard = $cards->map(function (Card $card) use ($transactions) {
+        $cards  = Card::where('user_id', $userId)->get();
+        $byCard = $cards->map(function (Card $card) use ($transactions, $cycleMonth) {
+            // Per-card cycle may differ if statement_days differ, but use global cycle for now
             $spent = $transactions->where('card_id', $card->id)->sum('amount');
             return [
                 'card_id'         => $card->id,
@@ -40,6 +51,8 @@ class DashboardController extends Controller
                 'utilization_pct' => $card->credit_limit > 0
                     ? round(($spent / $card->credit_limit) * 100)
                     : null,
+                'statement_day'   => $card->statement_day,
+                'payment_day'     => $card->payment_day,
             ];
         })->values();
 
@@ -48,7 +61,7 @@ class DashboardController extends Controller
             $q->whereNull('user_id')->orWhere('user_id', $userId);
         })->get()->keyBy('id');
 
-        $budgets = Budget::where('user_id', $userId)->where('month', $month)
+        $budgets = Budget::where('user_id', $userId)->where('month', $cycleMonth)
             ->get()->keyBy('category_id');
 
         $byCategory = $transactions->groupBy('category_id')->map(function ($items, $categoryId) use ($categories, $budgets) {
@@ -63,8 +76,8 @@ class DashboardController extends Controller
             ];
         })->values();
 
-        // Commitments
-        $commitments       = Commitment::where('user_id', $userId)->where('month', $month)->get();
+        // Commitments (still month-scoped — commitments are calendar-month obligations)
+        $commitments       = Commitment::where('user_id', $userId)->where('month', $cycleMonth)->get();
         $commitmentsPaid   = $commitments->where('is_paid', true)->count();
         $commitmentsUnpaid = $commitments->where('is_paid', false)->count();
 
@@ -77,7 +90,7 @@ class DashboardController extends Controller
         // Savings
         $totalSavings     = Saving::where('user_id', $userId)->sum('amount');
         $savingsThisMonth = Saving::where('user_id', $userId)
-            ->whereRaw("to_char(date, 'YYYY-MM') = ?", [$month])
+            ->whereRaw("to_char(date, 'YYYY-MM') = ?", [$cycleMonth])
             ->sum('amount');
 
         // Rule health
@@ -99,7 +112,11 @@ class DashboardController extends Controller
         }
 
         return response()->json([
-            'month'                => $month,
+            'month'                => $cycleMonth,
+            'cycle_start'          => $cycleStart,
+            'cycle_end'            => $cycleEnd,
+            'statement_date'       => $statementDate,
+            'payment_due'          => $paymentDueDate,
             'total_inflow'         => 0,
             'total_outflow'        => (float) $totalOutflow,
             'net_position'         => -(float) $totalOutflow,

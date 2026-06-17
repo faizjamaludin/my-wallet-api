@@ -10,6 +10,7 @@ class Card extends Model
 {
     protected $fillable = [
         'user_id', 'name', 'type', 'last_four', 'credit_limit', 'current_balance',
+        'statement_day', 'payment_day',
     ];
 
     protected function casts(): array
@@ -17,6 +18,8 @@ class Card extends Model
         return [
             'credit_limit'    => 'decimal:2',
             'current_balance' => 'decimal:2',
+            'statement_day'   => 'integer',
+            'payment_day'     => 'integer',
         ];
     }
 
