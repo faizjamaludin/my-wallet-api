@@ -63,4 +63,15 @@ class BillingCycle
     {
         return static::cycleMonthFor(now()->format('Y-m-d'), $statementDay);
     }
+
+    /**
+     * Calendar month date range (first → last day) for a debit card.
+     * calendarDateRange('2026-06') → ['2026-06-01', '2026-06-30']
+     */
+    public static function calendarDateRange(string $month): array
+    {
+        $start = Carbon::parse($month . '-01');
+        $end   = $start->copy()->endOfMonth();
+        return [$start->format('Y-m-d'), $end->format('Y-m-d')];
+    }
 }

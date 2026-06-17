@@ -13,17 +13,50 @@ use Illuminate\Support\Carbon;
 class TransactionController extends Controller
 {
     /**
+     * Resolve the card for a given user + optional card_id.
+     */
+    private function resolveCard(int $userId, ?int $cardId): ?Card
+    {
+        if ($cardId) {
+            return Card::where('id', $cardId)->where('user_id', $userId)->first();
+        }
+        return null;
+    }
+
+    /**
      * Resolve the statement_day to use for a given user + optional card_id.
      * Falls back to the user's first credit card, then to 18.
      */
     private function resolveStatementDay(int $userId, ?int $cardId): int
     {
-        if ($cardId) {
-            $card = Card::where('id', $cardId)->where('user_id', $userId)->first();
-            if ($card) return $card->statement_day;
-        }
+        $card = $this->resolveCard($userId, $cardId);
+        if ($card) return $card->statement_day;
         $firstCC = Card::where('user_id', $userId)->where('type', 'credit')->orderBy('created_at')->first();
         return $firstCC?->statement_day ?? 18;
+    }
+
+    /**
+     * Whether a specific card is a debit card.
+     */
+    private function isDebitCard(int $userId, ?int $cardId): bool
+    {
+        if (!$cardId) return false;
+        $card = $this->resolveCard($userId, $cardId);
+        return $card?->type === 'debit';
+    }
+
+    /**
+     * Compute the month string to store for a transaction.
+     * Debit cards: calendar month (YYYY-MM of the date).
+     * Credit cards / no card: billing cycle month.
+     */
+    private function computeMonth(string $date, int $userId, ?int $cardId): string
+    {
+        if ($this->isDebitCard($userId, $cardId)) {
+            return substr($date, 0, 7); // YYYY-MM
+        }
+        $statementDay = $this->resolveStatementDay($userId, $cardId);
+        return BillingCycle::cycleMonthFor($date, $statementDay);
     }
 
     public function index(Request $request)
@@ -31,10 +64,16 @@ class TransactionController extends Controller
         $userId  = $request->user()->id;
         $cardId  = $request->query('card_id') ? (int) $request->query('card_id') : null;
 
-        $statementDay = $this->resolveStatementDay($userId, $cardId);
-        $cycleMonth   = $request->query('month', BillingCycle::currentCycleMonth($statementDay));
-
-        [$cycleStart, $cycleEnd] = BillingCycle::dateRange($cycleMonth, $statementDay);
+        // Debit cards use calendar month; credit/no-card use billing cycle
+        if ($this->isDebitCard($userId, $cardId)) {
+            $defaultMonth = date('Y-m');
+            $month        = $request->query('month', $defaultMonth);
+            [$cycleStart, $cycleEnd] = BillingCycle::calendarDateRange($month);
+        } else {
+            $statementDay = $this->resolveStatementDay($userId, $cardId);
+            $month        = $request->query('month', BillingCycle::currentCycleMonth($statementDay));
+            [$cycleStart, $cycleEnd] = BillingCycle::dateRange($month, $statementDay);
+        }
 
         $query = Transaction::with(['card', 'category'])
             ->where('user_id', $userId)
@@ -77,8 +116,7 @@ class TransactionController extends Controller
 
         $data['user_id'] = $request->user()->id;
 
-        $statementDay  = $this->resolveStatementDay($data['user_id'], $data['card_id'] ?? null);
-        $data['month'] = BillingCycle::cycleMonthFor($data['date'], $statementDay);
+        $data['month'] = $this->computeMonth($data['date'], $data['user_id'], $data['card_id'] ?? null);
 
         $transaction = Transaction::create($data);
         $transaction->load(['card', 'category']);
@@ -101,8 +139,7 @@ class TransactionController extends Controller
 
         if (isset($data['date'])) {
             $cardId        = $data['card_id'] ?? $transaction->card_id;
-            $statementDay  = $this->resolveStatementDay($transaction->user_id, $cardId);
-            $data['month'] = BillingCycle::cycleMonthFor($data['date'], $statementDay);
+            $data['month'] = $this->computeMonth($data['date'], $transaction->user_id, $cardId);
         }
 
         $transaction->update($data);
@@ -131,9 +168,7 @@ class TransactionController extends Controller
         $cardId  = $request->input('card_id') ? (int) $request->input('card_id') : null;
         $file    = $request->file('file');
         $handle  = fopen($file->getRealPath(), 'r');
-
-        $statementDay = $this->resolveStatementDay($userId, $cardId);
-        $headers      = array_map('strtolower', array_map('trim', fgetcsv($handle)));
+        $headers = array_map('strtolower', array_map('trim', fgetcsv($handle)));
         $imported     = 0;
         $skipped      = 0;
         $errors       = [];
@@ -162,7 +197,7 @@ class TransactionController extends Controller
                     'category_id' => $category?->id,
                     'amount'      => (float) str_replace(',', '', $line['amount']),
                     'date'        => $dateStr,
-                    'month'       => BillingCycle::cycleMonthFor($dateStr, $statementDay),
+                    'month'       => $this->computeMonth($dateStr, $userId, $cardId),
                     'description' => trim($line['description'] ?? ''),
                     'merchant'    => trim($line['merchant'] ?? ''),
                 ]);
