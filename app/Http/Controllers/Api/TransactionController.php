@@ -105,6 +105,8 @@ class TransactionController extends Controller
 
     public function store(Request $request)
     {
+        $userId = $request->user()->id;
+
         $data = $request->validate([
             'card_id'     => 'nullable|exists:cards,id',
             'category_id' => 'nullable|exists:categories,id',
@@ -114,7 +116,25 @@ class TransactionController extends Controller
             'merchant'    => 'nullable|string|max:100',
         ]);
 
-        $data['user_id'] = $request->user()->id;
+        // Verify card belongs to this user
+        if (!empty($data['card_id'])) {
+            abort_unless(
+                Card::where('id', $data['card_id'])->where('user_id', $userId)->exists(),
+                403, 'Card does not belong to you'
+            );
+        }
+
+        // Verify category is preset (user_id = null) or owned by this user
+        if (!empty($data['category_id'])) {
+            abort_unless(
+                Category::where('id', $data['category_id'])
+                    ->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))
+                    ->exists(),
+                403, 'Category does not belong to you'
+            );
+        }
+
+        $data['user_id'] = $userId;
 
         $data['month'] = $this->computeMonth($data['date'], $data['user_id'], $data['card_id'] ?? null);
 
@@ -126,7 +146,8 @@ class TransactionController extends Controller
 
     public function update(Request $request, Transaction $transaction)
     {
-        abort_unless($transaction->user_id === $request->user()->id, 403);
+        $userId = $request->user()->id;
+        abort_unless($transaction->user_id === $userId, 403);
 
         $data = $request->validate([
             'card_id'     => 'nullable|exists:cards,id',
@@ -136,6 +157,24 @@ class TransactionController extends Controller
             'description' => 'nullable|string|max:255',
             'merchant'    => 'nullable|string|max:100',
         ]);
+
+        // Verify card belongs to this user
+        if (!empty($data['card_id'])) {
+            abort_unless(
+                Card::where('id', $data['card_id'])->where('user_id', $userId)->exists(),
+                403, 'Card does not belong to you'
+            );
+        }
+
+        // Verify category is preset or owned by this user
+        if (!empty($data['category_id'])) {
+            abort_unless(
+                Category::where('id', $data['category_id'])
+                    ->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))
+                    ->exists(),
+                403, 'Category does not belong to you'
+            );
+        }
 
         if (isset($data['date'])) {
             $cardId        = $data['card_id'] ?? $transaction->card_id;
@@ -166,6 +205,14 @@ class TransactionController extends Controller
 
         $userId  = $request->user()->id;
         $cardId  = $request->input('card_id') ? (int) $request->input('card_id') : null;
+
+        // Verify card belongs to this user
+        if ($cardId) {
+            abort_unless(
+                Card::where('id', $cardId)->where('user_id', $userId)->exists(),
+                403, 'Card does not belong to you'
+            );
+        }
         $file    = $request->file('file');
         $handle  = fopen($file->getRealPath(), 'r');
         $headers = array_map('strtolower', array_map('trim', fgetcsv($handle)));
